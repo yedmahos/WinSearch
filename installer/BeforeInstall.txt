@@ -1,0 +1,9 @@
+WinSearch for Windows 11 x64
+
+This installer includes the .NET and Windows App SDK runtimes. You do not need to import a certificate or install an MSIX package.
+
+If you have the older MSIX version, close it and uninstall it from Windows Settings > Apps > Installed apps before using this version. Setup does not remove the old package or any certificates. Running both copies can prevent Alt+Space from working.
+
+WinSearch starts from the Start menu. Alt+Space works while it is running. Automatic startup and automatic updates are not configured.
+
+To update or uninstall, close WinSearch first (use Task Manager if its panel is hidden).

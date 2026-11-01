@@ -2,54 +2,19 @@
 
 A Spotlight-style launcher for Windows, built with C# and WinUI. Search installed apps, files, and folders from a compact panel.
 
-## Download for Windows
+## Windows installer
 
-**[Download WinSearch v1.0.0 — Windows x64 ZIP](https://github.com/yedmahos/WinSearch/releases/download/v1.0.0/WinSearch-v1.0.0-Windows-x64.zip)**
+WinSearch now builds as a traditional **Setup.exe** with bundled .NET and Windows App SDK runtimes. It installs for the current user on **Windows 11 x64**, with a Start menu shortcut, optional desktop shortcut and uninstall support. No MSIX certificate import is needed.
 
-[View the v1.0.0 release](https://github.com/yedmahos/WinSearch/releases/tag/v1.0.0)
+The Setup build is a **test candidate**, not a verified public release. See [build instructions, compatibility notes and the manual test checklist](docs/SETUP.md). Check [GitHub Releases](https://github.com/yedmahos/WinSearch/releases) for available assets; source archives are not installers.
 
-This release is marked **prerelease** and uses a self-signed development certificate. The installation instructions below target **Windows 11 x64**. Download the named release ZIP under **Assets**; GitHub's automatically generated source archives do not contain the installer.
+When a tested Setup asset is published, download `WinSearch-Setup-<version>.exe`, run it, then launch WinSearch from Start. An unsigned installer may still display SmartScreen warnings.
 
-## Installation
+### Moving from the older MSIX release
 
-### 1. Extract the release
+Close and uninstall the old MSIX edition through **Settings > Apps > Installed apps** before running the new edition. Setup does not remove the old package or certificates. Running both editions can interfere with Alt+Space.
 
-Extract the entire ZIP to a folder on your computer. Keep the installer, certificate, and dependency files together. The archive contains:
-
-```text
-WinSearch-1.0.0-windows-x64.msix
-WinSearch.cer
-INSTALL.md
-Dependencies/
-└── x64/
-    └── Microsoft.WindowsAppRuntime.2.msix
-```
-
-### 2. Trust the signing certificate
-
-Only trust the certificate if you trust the publisher and downloaded the files from this repository's release page. Windows does not automatically trust this self-signed certificate.
-
-1. Open **PowerShell as Administrator**.
-2. Change to the extracted folder containing `WinSearch.cer`. Replace the example path below with your actual folder.
-3. Import the public certificate into **Local Machine → Trusted People**:
-
-   ```powershell
-   Set-Location -LiteralPath "C:\path\to\extracted\WinSearch"
-   Import-Certificate -FilePath ".\WinSearch.cer" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople"
-   ```
-
-Alternatively, double-click `WinSearch.cer`, select **Install Certificate → Local Machine**, approve the administrator prompt, then choose **Place all certificates in the following store → Browse → Trusted People** and finish the wizard. Select the machine store, not Current User.
-
-These steps follow [Microsoft's guidance for installing a self-signed MSIX package](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide#testing-distribute-to-testers-with-a-self-signed-certificate).
-
-### 3. Install and launch
-
-1. Double-click `WinSearch-1.0.0-windows-x64.msix` and select **Install** in Windows App Installer.
-2. If Windows reports missing framework dependencies, install the matching packages from the extracted `Dependencies\x64` folder, then retry the main installer.
-3. Launch **WinSearch** from the Start menu.
-4. Press **Alt+Space** to show or hide the search panel while WinSearch is running.
-
-If Windows cannot verify the publisher, confirm that the release certificate was imported into **Local Machine → Trusted People**. Do not import it into Trusted Root Certification Authorities.
+The [legacy v1.0.0 MSIX prerelease](https://github.com/yedmahos/WinSearch/releases/tag/v1.0.0) remains available and still requires its original self-signed certificate and dependencies. It is separate from the new Setup distribution.
 
 ## Usage
 
@@ -83,15 +48,16 @@ The scanner skips inaccessible directories, reparse-point directories, and commo
 
 ## Source and development
 
-The project uses **C#**, **WinUI**, **.NET 10**, and the **Windows App SDK**, with MSIX packaging.
+The project uses **C#**, **WinUI**, **.NET 10**, and the **Windows App SDK**, with unpackaged, self-contained desktop distribution.
 
 - [`WinSearch.csproj`](WinSearch.csproj): target framework, dependencies, and build settings.
 - [`MainWindow.xaml`](MainWindow.xaml): search panel layout.
 - [`MainWindow.xaml.cs`](MainWindow.xaml.cs): discovery, ranking, results, icons, and launching.
 - [`MainWindow.Hotkey.cs`](MainWindow.Hotkey.cs): global shortcut and panel visibility.
-- [`Package.appxmanifest`](Package.appxmanifest): package identity and Windows capabilities.
+- [`installer/WinSearch.iss`](installer/WinSearch.iss): Windows installer definition.
+- [`docs/SETUP.md`](docs/SETUP.md): build, migration, compatibility and validation instructions.
 
-To work on the app, use a Windows development environment with .NET 10 and WinUI/MSIX tooling, open `WinSearch.slnx` in a compatible version of Visual Studio, restore the project's NuGet packages, and select the desired build platform. The project defines x86, x64, and ARM64 targets; the published v1.0.0 download is **x64 only**.
+Use a Windows development environment with .NET 10 and WinUI tooling, open `WinSearch.slnx`, restore dependencies, select x64 and use the **WinSearch (Unpackaged)** launch profile. Build Setup with `scripts/Build-Setup.ps1` as described in [SETUP.md](docs/SETUP.md). Only native Windows 11 x64 is targeted by the installer.
 
 ## Feedback
 
