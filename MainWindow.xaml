@@ -54,7 +54,7 @@
                             Padding="11,0,0,0"
                             BorderThickness="0"
                             Background="Transparent"
-                            PlaceholderText="Spotlight Search"
+                            PlaceholderText="Win Search"
                             TextChanged="SearchBox_TextChanged"
                             KeyDown="SearchBox_KeyDown">
 
