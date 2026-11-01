@@ -1,4 +1,4 @@
-﻿# Visual Studio
+# Visual Studio
 .vs/
 *.user
 *.suo
@@ -27,6 +27,7 @@ BundleArtifacts/
 *.log
 *.bak
 TestResults/
+artifacts/
 
 # Local environment
 .env
