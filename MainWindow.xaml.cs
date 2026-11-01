@@ -152,6 +152,15 @@ namespace WinSearch
             }
 
             RootGrid.Loaded += RootGrid_Loaded;
+            Activated += (_, _) =>
+            {
+                // Defer until WinUI has finished processing native activation.
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (!_searchClosing)
+                        ApplyNativeWindowStyle();
+                });
+            };
 
             RootGrid.ActualThemeChanged += (_, _) =>
             {
@@ -250,6 +259,7 @@ namespace WinSearch
         private void ApplyPanelStyle()
         {
             bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
+            ApplyNativeWindowStyle();
             // Let the native acrylic window draw the outer surface.
             SearchPanel.BorderBrush = new SolidColorBrush(Colors.Transparent);
             SearchPanel.Background = new SolidColorBrush(Colors.Transparent);
@@ -290,29 +300,35 @@ namespace WinSearch
                 presenter.IsMinimizable = false;
             }
 
-            IntPtr hwnd =
-                WindowNative.GetWindowHandle(this);
-
-            if (hwnd != IntPtr.Zero)
-            {
-                // Suppress the native outline independently of corner rounding.
-                const int DwmBorderColor = 34;
-                int noBorder = unchecked((int)0xFFFFFFFE);
-                int borderResult = DwmSetWindowAttribute(hwnd, DwmBorderColor, ref noBorder, sizeof(int));
-                if (borderResult < 0) WriteLifecycleDiagnostic($"Border suppression failed: {borderResult:X8}");
-                int preference = DwmRound;
-
-                DwmSetWindowAttribute(
-                    hwnd,
-                    DwmCornerPreference,
-                    ref preference,
-                    sizeof(int));
-            }
+            ApplyNativeWindowStyle();
 
             // Global Alt+Space and outside-click
             // dismissal are implemented in
             // MainWindow.Hotkey.cs.
             InitializeGlobalHotkey();
+        }
+
+        private void ApplyNativeWindowStyle()
+        {
+            if (_searchClosing)
+                return;
+
+            IntPtr hwnd = WindowNative.GetWindowHandle(this);
+            if (hwnd == IntPtr.Zero)
+                return;
+
+            // Keep the native frame in sync with XAML after theme/activation changes.
+            int dark = RootGrid.ActualTheme == ElementTheme.Dark ? 1 : 0;
+            SetNativeStyleAttribute(hwnd, 20, dark, "dark mode");
+            SetNativeStyleAttribute(hwnd, DwmCornerPreference, DwmRound, "rounded corners");
+            SetNativeStyleAttribute(hwnd, 34, unchecked((int)0xFFFFFFFE), "border suppression");
+        }
+
+        private static void SetNativeStyleAttribute(IntPtr hwnd, int attribute, int value, string name)
+        {
+            int result = DwmSetWindowAttribute(hwnd, attribute, ref value, sizeof(int));
+            if (result < 0)
+                WriteLifecycleDiagnostic($"Native {name} failed: {result:X8}");
         }
 
         // ======================================
