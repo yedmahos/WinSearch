@@ -18,7 +18,7 @@ The [legacy v1.0.0 MSIX prerelease](https://github.com/yedmahos/WinSearch/releas
 
 ## Usage
 
-Type part of an app, file, or folder name. Results update as you type, with a maximum of three matches.
+Type part of an app, file, or folder name. Results update as you type, with a maximum of six matches.
 
 | Action | Shortcut or interaction |
 | --- | --- |

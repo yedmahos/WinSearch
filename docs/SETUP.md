@@ -98,7 +98,7 @@ Use a clean Windows 11 x64 VM as a standard user with no development certificate
    conventional `.lnk` shortcut so Start menu scanning cannot mask a discovery failure.
 5. Add a harmless uniquely named text file and folder in Documents before starting
    WinSearch. Wait for indexing, search each name, open with Enter, verify file
-   association and folder opening. Check Escape and maximum-three-result layout.
+   association and folder opening. Check Escape and maximum-six-result layout.
 6. Re-run Setup over the same version, then test a higher `-Version`. Check in-use
    handling, unchanged install location, one Apps entry and working shortcuts.
 7. Uninstall both while stopped and while running. Confirm installed files and
