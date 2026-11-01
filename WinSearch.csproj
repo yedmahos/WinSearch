@@ -71,4 +71,10 @@
     <!-- Preserve WinRT projections, XAML bindings and COM interop. -->
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
+	<ItemGroup>
+		<Content Include="Assets\Figma\*.svg"
+				 CopyToOutputDirectory="PreserveNewest"
+				 CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

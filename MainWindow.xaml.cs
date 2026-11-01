@@ -36,8 +36,8 @@ namespace WinSearch
         private const double CollapsedHeight = 74;
         private const double ReferenceExpandedHeight = 310;
 
-        private const int MaxResults = 3;
-        private const int IconSize = 40;
+        private const int MaxResults = 6;
+        private const int IconSize = 32;
 
         // Bounded file search
         private const int MaxIndexedItems = 30000;
@@ -62,7 +62,7 @@ namespace WinSearch
                 "IconsV2");
 
         private const int DwmCornerPreference = 33;
-        private const int DwmRound = 2;
+        private const int DwmRound = 2; // Smooth system-composited corners.
 
         private const uint SHGFI_ICON = 0x00000100;
         private const uint SHGFI_LARGEICON = 0;
@@ -126,6 +126,10 @@ namespace WinSearch
         public MainWindow()
         {
             InitializeComponent();
+            SystemBackdrop = new DesktopAcrylicBackdrop();
+            Application.Current.UnhandledException += (_, args) =>
+                WriteLifecycleDiagnostic("Unhandled exception: " + args.Exception);
+            Closed += (_, _) => WriteLifecycleDiagnostic("Window Closed event received.");
 
             Title = "Win Search";
 
@@ -151,6 +155,7 @@ namespace WinSearch
 
             RootGrid.ActualThemeChanged += (_, _) =>
             {
+                ApplyPanelStyle();
                 if (_isReady)
                     UpdateResults();
             };
@@ -167,6 +172,7 @@ namespace WinSearch
         {
             RootGrid.Loaded -= RootGrid_Loaded;
 
+            ApplyPanelStyle();
             ConfigureWindow();
 
             try
@@ -214,6 +220,62 @@ namespace WinSearch
             }
         }
 
+        private SolidColorBrush PrimaryTextBrush() => new SolidColorBrush(
+            RootGrid.ActualTheme == ElementTheme.Dark
+                ? Colors.White : ColorHelper.FromArgb(255, 26, 26, 26));
+
+        private SolidColorBrush SecondaryTextBrush() => new SolidColorBrush(
+            RootGrid.ActualTheme == ElementTheme.Dark
+                ? ColorHelper.FromArgb(148, 255, 255, 255)
+                : ColorHelper.FromArgb(255, 69, 76, 87));
+
+        private void ClearQuery_Click(object sender, RoutedEventArgs e)
+        {
+            SearchBox.Text = string.Empty;
+            SearchBox.Focus(FocusState.Programmatic);
+        }
+
+        private static T? FindVisualChild<T>(DependencyObject parent, string name) where T : FrameworkElement
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T element && element.Name == name) return element;
+                T? found = FindVisualChild<T>(child, name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private void ApplyPanelStyle()
+        {
+            bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
+            // Let the native acrylic window draw the outer surface.
+            SearchPanel.BorderBrush = new SolidColorBrush(Colors.Transparent);
+            SearchPanel.Background = new SolidColorBrush(Colors.Transparent);
+            SearchField.Background = new SolidColorBrush(dark
+                ? ColorHelper.FromArgb(59, 42, 42, 42)
+                : ColorHelper.FromArgb(59, 255, 255, 255));
+            SearchField.BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(77, 255, 255, 255));
+            SearchBox.Foreground = PrimaryTextBrush();
+            ClearGlyph.Source = new SvgImageSource(new Uri(
+                "ms-appx:///Assets/Figma/clear-" + (dark ? "dark" : "light") + ".svg"));
+            SearchGlyph.Source = new SvgImageSource(new Uri(
+                "ms-appx:///Assets/Figma/search-" + (dark ? "dark" : "light") + ".svg"));
+        }
+
+        private static void WriteLifecycleDiagnostic(string message)
+        {
+            try
+            {
+                string folder = Path.Combine(Path.GetTempPath(), "WinSearch");
+                Directory.CreateDirectory(folder);
+                File.AppendAllText(Path.Combine(folder, "lifecycle.log"),
+                    DateTimeOffset.Now.ToString("O") + " " + message + Environment.NewLine);
+            }
+            catch (Exception ex) { Debug.WriteLine(ex); }
+        }
+
         private void ConfigureWindow()
         {
             if (AppWindow.Presenter is
@@ -233,6 +295,11 @@ namespace WinSearch
 
             if (hwnd != IntPtr.Zero)
             {
+                // Suppress the native outline independently of corner rounding.
+                const int DwmBorderColor = 34;
+                int noBorder = unchecked((int)0xFFFFFFFE);
+                int borderResult = DwmSetWindowAttribute(hwnd, DwmBorderColor, ref noBorder, sizeof(int));
+                if (borderResult < 0) WriteLifecycleDiagnostic($"Border suppression failed: {borderResult:X8}");
                 int preference = DwmRound;
 
                 DwmSetWindowAttribute(
@@ -675,7 +742,7 @@ namespace WinSearch
                 .ThenBy(
                     app => app.Name,
                     StringComparer.OrdinalIgnoreCase)
-                .Take(MaxResults)
+                .Take(3)
                 .ToList();
 
             if (apps.Count >= MaxResults)
@@ -764,6 +831,10 @@ namespace WinSearch
         private void UpdateResults()
         {
             string query = SearchBox.Text.Trim();
+            ClearQueryButton.Visibility = SearchBox.Text.Length == 0
+                ? Visibility.Collapsed : Visibility.Visible;
+            if (FindVisualChild<TextBlock>(SearchBox, "QueryPlaceholder") is TextBlock placeholder)
+                placeholder.Visibility = SearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
             ResultsHost.Children.Clear();
             _visibleResults.Clear();
@@ -850,7 +921,7 @@ namespace WinSearch
                 FontSize = 12,
                 FontWeight =
                     Microsoft.UI.Text.FontWeights.SemiBold,
-                Opacity = 0.7
+                Foreground = SecondaryTextBrush()
             });
 
             group.Children.Add(heading);
@@ -886,7 +957,7 @@ namespace WinSearch
                     selected
                         ? (dark
                             ? ColorHelper.FromArgb(
-                                36, 255, 255, 255)
+                                97, 13, 13, 13)
                             : ColorHelper.FromArgb(
                                 115, 255, 255, 255))
                         : Microsoft.UI.Colors.Transparent)
@@ -939,7 +1010,7 @@ namespace WinSearch
 
                 FontFamily = new FontFamily(
                     "Segoe Fluent Icons"),
-                FontSize = 34,
+                FontSize = 32,
                 Width = IconSize,
                 Height = IconSize,
                 HorizontalAlignment =
@@ -981,6 +1052,7 @@ namespace WinSearch
             labels.Children.Add(new TextBlock
             {
                 Text = result.Name,
+                Foreground = PrimaryTextBrush(),
                 FontSize = 14,
                 MaxLines = 1,
                 TextTrimming =
@@ -991,7 +1063,7 @@ namespace WinSearch
             {
                 Text = result.Location,
                 FontSize = 12,
-                Opacity = 0.65,
+                Foreground = SecondaryTextBrush(),
                 MaxLines = 1,
                 TextTrimming =
                     TextTrimming.CharacterEllipsis
@@ -1004,7 +1076,7 @@ namespace WinSearch
             {
                 Text = result.Kind,
                 FontSize = 11,
-                Opacity = 0.65,
+                Foreground = SecondaryTextBrush(),
                 TextAlignment = TextAlignment.Right,
                 VerticalAlignment =
                     VerticalAlignment.Center
@@ -1025,11 +1097,7 @@ namespace WinSearch
                     CornerRadius = new CornerRadius(2),
 
                     Background = new SolidColorBrush(
-                        dark
-                            ? ColorHelper.FromArgb(
-                                255, 96, 205, 255)
-                            : ColorHelper.FromArgb(
-                                115, 0, 103, 192)),
+                        ColorHelper.FromArgb(255, 0, 103, 192)),
 
                     HorizontalAlignment =
                         HorizontalAlignment.Left,
@@ -1309,21 +1377,19 @@ namespace WinSearch
                     VerticalAlignment.Center
             };
 
-            message.Children.Add(new FontIcon
+            message.Children.Add(new Image
             {
-                Glyph = "\uE721",
-                FontFamily = new FontFamily(
-                    "Segoe Fluent Icons"),
-                FontSize = 32,
-                Opacity = 0.55,
-                HorizontalAlignment =
-                    HorizontalAlignment.Center,
+                Source = new SvgImageSource(new Uri("ms-appx:///Assets/Figma/empty-light.svg")),
+                Width = 32,
+                Height = 32,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 8)
             });
 
             message.Children.Add(new TextBlock
             {
                 Text = "No results found",
+                Foreground = PrimaryTextBrush(),
                 FontSize = 16,
                 FontWeight =
                     Microsoft.UI.Text.FontWeights.SemiBold,
@@ -1337,7 +1403,7 @@ namespace WinSearch
                     ? "Try a different app or filename."
                     : "Searching installed apps and files...",
                 FontSize = 13,
-                Opacity = 0.65,
+                Foreground = SecondaryTextBrush(),
                 HorizontalAlignment =
                     HorizontalAlignment.Center
             });
@@ -1397,7 +1463,7 @@ namespace WinSearch
                     double.PositiveInfinity));
 
                 height = (int)Math.Ceiling(
-                    SearchPanel.DesiredSize.Height * scale) + 2;
+                    SearchPanel.DesiredSize.Height * scale);
             }
 
             if (AppWindow.ClientSize.Width != width ||
@@ -1425,29 +1491,10 @@ namespace WinSearch
             int x = area.X +
                 (area.Width - windowWidth) / 2;
 
-            int y;
-
-            bool collapsed =
-                string.IsNullOrWhiteSpace(SearchBox.Text);
-
-            if (collapsed)
-            {
-                double scale =
-                    RootGrid.XamlRoot?
-                    .RasterizationScale ?? 1.0;
-
-                int referenceHeight =
-                    (int)Math.Ceiling(
-                        ReferenceExpandedHeight * scale);
-
-                y = area.Y +
-                    (area.Height - referenceHeight) / 2;
-            }
-            else
-            {
-                y = area.Y +
-                    (area.Height - windowHeight) / 2;
-            }
+            // Keep the search field anchored while results grow below it.
+            double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+            int referenceHeight = (int)Math.Ceiling(ReferenceExpandedHeight * scale);
+            int y = area.Y + (area.Height - referenceHeight) / 2;
 
             int maxX =
                 area.X + area.Width - windowWidth;
@@ -1546,3 +1593,4 @@ namespace WinSearch
         }
     }
 }
+
