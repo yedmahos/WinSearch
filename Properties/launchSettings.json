@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WinSearch (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WinSearch (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+
+# .NET build output
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+
+# Windows App SDK packages
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.msixupload
+*.appxupload
+*.msixvc
+*.msixvc.*
+
+# Temporary and generated files
+*.tmp
+*.log
+*.bak
+TestResults/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
