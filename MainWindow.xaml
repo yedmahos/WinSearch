@@ -3,14 +3,20 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Custom acrylic is assigned in MainWindow.xaml.cs. -->
+    <!-- A transparent window hosts a rounded, independently tinted acrylic surface. -->
 
     <!-- No outside margin or padding -->
     <Grid
         x:Name="RootGrid"
         Background="Transparent">
 
-        <!-- Main Figma panel -->
+        <Grid x:Name="GlassSurface" Width="680"
+              HorizontalAlignment="Center" VerticalAlignment="Top">
+            <SystemBackdropElement x:Name="GlassBackdrop"
+                                   CornerRadius="20" IsHitTestVisible="False"/>
+            <Border x:Name="GlassEdge" CornerRadius="20"
+                    BorderThickness="1" IsHitTestVisible="False"/>
+        <!-- Search content retains its existing dimensions and padding. -->
         <Border
         x:Name="SearchPanel"
         Width="680"
@@ -131,6 +137,7 @@
             </StackPanel>
 
         </Border>
+        </Grid>
 
     </Grid>
 </Window>
