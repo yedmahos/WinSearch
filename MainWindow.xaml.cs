@@ -13,6 +13,9 @@ using Draw = System.Drawing;
 
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Composition.SystemBackdrops;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -42,6 +45,8 @@ namespace WinSearch
         // Bounded file search
         private const int MaxIndexedItems = 30000;
         private const int MaxFolderDepth = 7;
+
+        private readonly SearchGlassBackdrop _glassBackdrop = new();
 
         private bool _isReady;
         private bool _resizeQueued;
@@ -126,7 +131,8 @@ namespace WinSearch
         public MainWindow()
         {
             InitializeComponent();
-            SystemBackdrop = new DesktopAcrylicBackdrop();
+            SystemBackdrop = new TransparentSearchBackdrop();
+            GlassBackdrop.SystemBackdrop = _glassBackdrop;
             Application.Current.UnhandledException += (_, args) =>
                 WriteLifecycleDiagnostic("Unhandled exception: " + args.Exception);
             Closed += (_, _) => WriteLifecycleDiagnostic("Window Closed event received.");
@@ -260,12 +266,27 @@ namespace WinSearch
         {
             bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
             ApplyNativeWindowStyle();
-            // Let the native acrylic window draw the outer surface.
+            _glassBackdrop.SetAppearance(dark);
+            // Subtle rim and highlight follow the same radius as the acrylic surface.
+            GlassEdge.BorderBrush = new SolidColorBrush(dark
+                ? ColorHelper.FromArgb(48, 255, 255, 255)
+                : ColorHelper.FromArgb(115, 255, 255, 255));
+            GlassEdge.Background = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(1, 1),
+                GradientStops =
+                {
+                    new GradientStop { Color = ColorHelper.FromArgb(dark ? (byte)10 : (byte)18, 255, 255, 255), Offset = 0 },
+                    new GradientStop { Color = Colors.Transparent, Offset = 0.65 }
+                }
+            };
+            // The window itself stays transparent, including outside the rounded surface.
             SearchPanel.BorderBrush = new SolidColorBrush(Colors.Transparent);
             SearchPanel.Background = new SolidColorBrush(Colors.Transparent);
             SearchField.Background = new SolidColorBrush(dark
-                ? ColorHelper.FromArgb(59, 42, 42, 42)
-                : ColorHelper.FromArgb(59, 255, 255, 255));
+                ? ColorHelper.FromArgb(24, 42, 42, 42)
+                : ColorHelper.FromArgb(28, 255, 255, 255));
             SearchField.BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(77, 255, 255, 255));
             SearchBox.Foreground = PrimaryTextBrush();
             ClearGlyph.Source = new SvgImageSource(new Uri(
@@ -1606,6 +1627,110 @@ namespace WinSearch
                 Debug.WriteLine(
                     $"Unable to open {result.Name}: {ex}");
             }
+        }
+    }
+
+    // Each instance belongs to one window; the XAML compositor owns the compositor lifetime.
+    internal sealed class TransparentSearchBackdrop : SystemBackdrop
+    {
+        private CompositionColorBrush? _brush;
+
+        protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop target, XamlRoot root)
+        {
+            base.OnTargetConnected(target, root);
+            var compositor = ElementCompositionPreview.GetElementVisual(root.Content).Compositor;
+            _brush = compositor.CreateColorBrush(Colors.Transparent);
+            target.SystemBackdrop = _brush;
+        }
+
+        protected override void OnTargetDisconnected(ICompositionSupportsSystemBackdrop target)
+        {
+            target.SystemBackdrop = null;
+            _brush?.Dispose();
+            _brush = null;
+            base.OnTargetDisconnected(target);
+        }
+    }
+
+    // Owned by GlassBackdrop, not attached directly to the native window.
+    // Keep the framework configuration for activation, transparency policy and high contrast.
+    internal sealed class SearchGlassBackdrop : SystemBackdrop
+    {
+        private DesktopAcrylicController? _controller;
+        private CompositionColorBrush? _fallback;
+        private bool _dark;
+
+        public void SetAppearance(bool dark)
+        {
+            _dark = dark;
+            ApplyAppearance();
+        }
+
+        private void ApplyAppearance()
+        {
+            var tint = _dark
+                ? ColorHelper.FromArgb(255, 24, 32, 43)
+                : ColorHelper.FromArgb(255, 247, 250, 255);
+            var fallback = _dark
+                ? ColorHelper.FromArgb(255, 32, 36, 43)
+                : ColorHelper.FromArgb(255, 242, 246, 250);
+
+            if (_fallback != null)
+                _fallback.Color = fallback;
+
+            if (_controller == null)
+                return;
+
+            // Starting values for Windows visual testing, not a Figma blur-radius mapping.
+            _controller.TintColor = tint;
+            _controller.TintOpacity = _dark ? 0.35f : 0.18f;
+            _controller.LuminosityOpacity = _dark ? 0.55f : 0.65f;
+            _controller.FallbackColor = fallback;
+        }
+
+        protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop target, XamlRoot root)
+        {
+            base.OnTargetConnected(target, root);
+            if (DesktopAcrylicController.IsSupported())
+            {
+                var controller = new DesktopAcrylicController { Kind = DesktopAcrylicKind.Thin };
+                try
+                {
+                    controller.SetSystemBackdropConfiguration(
+                        GetDefaultSystemBackdropConfiguration(target, root));
+                    controller.AddSystemBackdropTarget(target);
+                    _controller = controller;
+                    ApplyAppearance();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _controller = null;
+                    controller.Dispose();
+                    Debug.WriteLine($"Rounded acrylic unavailable; using solid fallback: {ex}");
+                }
+            }
+
+            var compositor = ElementCompositionPreview.GetElementVisual(root.Content).Compositor;
+            _fallback = compositor.CreateColorBrush();
+            ApplyAppearance();
+            target.SystemBackdrop = _fallback;
+        }
+
+        protected override void OnTargetDisconnected(ICompositionSupportsSystemBackdrop target)
+        {
+            // Clear the field before disposal so queued theme callbacks cannot touch a closed controller.
+            var controller = _controller;
+            _controller = null;
+            if (controller != null)
+            {
+                controller.RemoveSystemBackdropTarget(target);
+                controller.Dispose();
+            }
+            target.SystemBackdrop = null;
+            _fallback?.Dispose();
+            _fallback = null;
+            base.OnTargetDisconnected(target);
         }
     }
 }
