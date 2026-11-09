@@ -15,7 +15,6 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -1630,16 +1629,18 @@ namespace WinSearch
         }
     }
 
-    // Each instance belongs to one window; the XAML compositor owns the compositor lifetime.
+    // Each backdrop owns its system compositor; dispose brushes before their compositor.
     internal sealed class TransparentSearchBackdrop : SystemBackdrop
     {
-        private CompositionColorBrush? _brush;
+        private Windows.UI.Composition.Compositor? _compositor;
+        private Windows.UI.Composition.CompositionColorBrush? _brush;
 
         protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop target, XamlRoot root)
         {
             base.OnTargetConnected(target, root);
-            var compositor = ElementCompositionPreview.GetElementVisual(root.Content).Compositor;
-            _brush = compositor.CreateColorBrush(Colors.Transparent);
+            DispatcherQueue.EnsureSystemDispatcherQueue();
+            _compositor = new Windows.UI.Composition.Compositor();
+            _brush = _compositor.CreateColorBrush(Colors.Transparent);
             target.SystemBackdrop = _brush;
         }
 
@@ -1648,6 +1649,8 @@ namespace WinSearch
             target.SystemBackdrop = null;
             _brush?.Dispose();
             _brush = null;
+            _compositor?.Dispose();
+            _compositor = null;
             base.OnTargetDisconnected(target);
         }
     }
@@ -1657,7 +1660,8 @@ namespace WinSearch
     internal sealed class SearchGlassBackdrop : SystemBackdrop
     {
         private DesktopAcrylicController? _controller;
-        private CompositionColorBrush? _fallback;
+        private Windows.UI.Composition.Compositor? _fallbackCompositor;
+        private Windows.UI.Composition.CompositionColorBrush? _fallback;
         private bool _dark;
 
         public void SetAppearance(bool dark)
@@ -1711,8 +1715,9 @@ namespace WinSearch
                 }
             }
 
-            var compositor = ElementCompositionPreview.GetElementVisual(root.Content).Compositor;
-            _fallback = compositor.CreateColorBrush();
+            DispatcherQueue.EnsureSystemDispatcherQueue();
+            _fallbackCompositor = new Windows.UI.Composition.Compositor();
+            _fallback = _fallbackCompositor.CreateColorBrush();
             ApplyAppearance();
             target.SystemBackdrop = _fallback;
         }
@@ -1730,6 +1735,8 @@ namespace WinSearch
             target.SystemBackdrop = null;
             _fallback?.Dispose();
             _fallback = null;
+            _fallbackCompositor?.Dispose();
+            _fallbackCompositor = null;
             base.OnTargetDisconnected(target);
         }
     }
